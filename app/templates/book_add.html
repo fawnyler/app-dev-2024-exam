@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container my-4">
+    <h1 class="mb-4">Редактирование книги</h1>
+
+    <form method="post" action="{{ url_for('admin.book_edit', book_id=book.id) }}" enctype="multipart/form-data">
+        <div class="form-group">
+            <label for="title">Название книги:</label>
+            <input type="text" class="form-control" id="title" name="title" value="{{ book.title }}" required>
+        </div>
+
+        <div class="form-group">
+            <label for="author">Автор:</label>
+            <input type="text" class="form-control" id="author" name="author" value="{{ book.author }}" required>
+        </div>
+
+        <div class="form-group">
+            <label for="year">Год издания:</label>
+            <input type="number" class="form-control" id="year" name="year" value="{{ book.year }}" min="1800" max="2100" required>
+        </div>
+
+        <div class="form-group">
+            <label for="publisher">Издатель:</label>
+            <input type="text" class="form-control" id="publisher" name="publisher" value="{{ book.publisher }}" required>
+        </div>
+
+        <div class="form-group">
+            <label for="genre">Жанры:</label>
+            <select id="genre" name="genre[]" class="form-control" multiple required>
+                {% for genre in genres %}
+                    <option value="{{ genre.id }}" {% if genre.id in selected_genres %} selected {% endif %}>{{ genre.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="descr">Описание:</label>
+            <textarea id="descr" name="descr" rows="8" class="form-control" required>{{ book.descr }}</textarea>
+        </div>
+
+        <div class="form-group">
+            <label for="cover_image">Обложка (PNG, JPG, JPEG, GIF)</label>
+            <input type="file" class="form-control-file" id="cover_image" name="cover_image">
+        </div>
+        <button type="submit" class="btn btn-primary">Добавить книгу</button>
+    </form>
+</div>
+{% endblock %}
