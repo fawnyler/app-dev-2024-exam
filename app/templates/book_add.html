@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% from 'macros.html' import render_book_form %}
+
+{% block content %}
+<div class="container my-4">
+    <h1 class="mb-4">Добавление книги</h1>
+    {{ render_book_form(book=book, genres=genres, selected_genres=selected_genres, is_editing=False) }}
+</div>
+{% endblock %}
