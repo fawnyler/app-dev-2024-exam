@@ -2,7 +2,6 @@ import hashlib
 import os
 from flask import Blueprint, render_template, request, redirect, url_for, flash
 from flask_login import current_user
-from werkzeug.utils import secure_filename
 from app import db_connector, app
 from auth import can_user
 from mysql.connector.errors import DatabaseError
@@ -105,7 +104,7 @@ def add_book():
 
             cover_data = cover_file.read()
             md5_hash = calculate_md5(cover_data)
-            cover_path = os.path.join(app.root_path, 'static/covers', md5_hash + file_extension)
+            cover_path = os.path.join(app.root_path, 'static/covers',uuid_filename)
 
             db = db_connector.connect()
             cursor = db.cursor(dictionary=True)
