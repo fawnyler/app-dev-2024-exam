@@ -8,6 +8,7 @@ import bleach
 app = Flask(__name__)
 application = app
 app.config.from_pyfile('config.py')
+app.config['UPLOAD_FOLDER'] = 'static/covers'
 
 db_connector = DBConnector(app)
 app.config['DB_CONNECTOR'] = db_connector
@@ -123,11 +124,18 @@ def search():
         
         results = title_results + genre_results + author_results
         
+        seen = set()
+        unique_results = []
+        for book in results:
+            if book['id'] not in seen:
+                unique_results.append(book)
+                seen.add(book['id'])
+
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-            return jsonify(results=results)
+            return jsonify(results=unique_results)
         else:
-            if results:
-                return render_template('search_results.html', books=results, search_query=query)
+            if unique_results:
+                return render_template('search_results.html', books=unique_results, search_query=query)
             else:
                 flash('Книги по вашему запросу не найдены.', category='warning')
                 return render_template('search_results.html', books=[], search_query=query)
@@ -165,6 +173,20 @@ def get_books(page, per_page):
 
         cursor.execute(query, (per_page, offset))
         books = cursor.fetchall()
+
+        for book in books:
+            query_review_count = """
+                SELECT 
+                    COUNT(*) AS visible_review_count
+                FROM 
+                    reviews
+                WHERE 
+                    book_id = %s AND status = 'Одобрено'
+            """
+            cursor.execute(query_review_count, (book['id'],))
+            review_count = cursor.fetchone()['visible_review_count']
+            book['visible_review_count'] = review_count
+
         cursor.close()
 
         cursor = db.cursor(dictionary=True)
@@ -210,17 +232,13 @@ def book_view(book_id):
             WHERE books.id = %s
             GROUP BY books.id
         """
+
         cursor.execute(query_book, (book_id,))
         book = cursor.fetchone()
-        cursor.close()
 
         if book:
-            if book['genre']:
-                book['genres_list'] = book['genre'].split(', ')
-            else:
-                book['genres_list'] = []
+            book['genres_list'] = book['genre'].split(', ') if book['genre'] else []
 
-            cursor = db.cursor()
             query_review_count = """
                 SELECT 
                     COUNT(*) AS visible_review_count
@@ -230,10 +248,8 @@ def book_view(book_id):
                     book_id = %s AND status = 'Одобрено'
             """
             cursor.execute(query_review_count, (book_id,))
-            review_count = cursor.fetchone()[0]
-            cursor.close()
+            review_count = cursor.fetchone()['visible_review_count']
 
-            cursor = db.cursor(dictionary=True)
             query_reviews = """
                 SELECT 
                     reviews.id,
@@ -253,7 +269,6 @@ def book_view(book_id):
             """
             cursor.execute(query_reviews, (book_id,))
             reviews_data = cursor.fetchall()
-            cursor.close()
 
             user_review = None
             if current_user.is_authenticated:
@@ -268,15 +283,17 @@ def book_view(book_id):
             for review in reviews_data:
                 review['text_html'] = markdown.markdown(review['text'])
 
+            cursor.close()
+
             return render_template('book_view.html', book=book, reviews=reviews_data, user_review=user_review, visible_review_count=review_count)
         else:
+            cursor.close()
             flash("Книга не найдена", category="danger")
             return redirect(url_for('index'))
     except DatabaseError as e:
         flash(f"Ошибка получения данных о книге: {str(e)}", category="danger")
         db_connector.connect().rollback()
         return redirect(url_for('index'))
-
 
 @app.route('/book/<int:book_id>/review', methods=['GET', 'POST'])
 @login_required
@@ -330,14 +347,12 @@ def index():
     search_query = request.args.get('query', '')
     
     if search_query:
-        # Если есть поисковый запрос, ищем книгу по названию, жанру и автору
         title_results = search_by_title(search_query)
         genre_results = search_by_genre(search_query)
         author_results = search_by_author(search_query)
 
         results = title_results + genre_results + author_results
         
-        # Убираем дублирующиеся книги из результатов
         seen = set()
         unique_results = []
         for book in results:
@@ -351,7 +366,6 @@ def index():
             flash('Книга не найдена', category='warning')
             return redirect(url_for('index'))
     
-    # Ваш текущий код для отображения всех книг на главной странице
     per_page = 5
     page = request.args.get('page', 1, type=int)
     books, total_books = get_books(page, per_page)
